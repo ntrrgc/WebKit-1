@@ -70,7 +70,8 @@ public:
     bool reenqueueMediaForTime(const MediaTime&, bool isEnded = false);
     MediaTime findSeekTimeForTargetTime(const MediaTime& targetTime, const MediaTime& negativeThreshold, const MediaTime& positiveThreshold);
     int64_t removeCodedFrames(const MediaTime& start, const MediaTime& end, const MediaTime& currentTime);
-    PlatformTimeRanges removeSamples(const DecodeOrderSampleMap::MapType&, ASCIILiteral);
+    PlatformTimeRanges removeSamplesFromMap(const DecodeOrderSampleMap::MapType&, ASCIILiteral);
+    void removeSamplesFromDecodeQueue(const DecodeOrderSampleMap::MapType&, ASCIILiteral);
     int64_t codedFramesIntervalSize(const MediaTime& start, const MediaTime& end);
 
     RefPtr<MediaSample> nextSample();
@@ -118,6 +119,9 @@ public:
     void setEnabled(bool enabled) { m_enabled = enabled; }
     bool needsReenqueueing() const { return m_needsReenqueueing; }
     void setNeedsReenqueueing(bool flag) { m_needsReenqueueing = flag; }
+
+    void startSmoothSwitch();
+    void clearSmoothSwitch();
 
     const SampleMap& samples() const LIFETIME_BOUND { return m_samples; }
     SampleMap& samples() LIFETIME_BOUND { return m_samples; }
@@ -192,6 +196,12 @@ private:
     MediaTime m_enqueueDiscontinuityBoundary;
     MediaTime m_lastEnqueueDecodeEnd;
     IsAcceptableEnqueueGapFn m_isAcceptableEnqueueGap;
+
+    struct SmoothSwitch {
+        // Highest decode time that can be enqueued (i.e. is not after a discontinuity).
+        MediaTime decodeTimeDeadline;
+    };
+    std::optional<SmoothSwitch> m_smoothSwitch;
 
     MediaTime m_roundedTimestampOffset { MediaTime::invalidTime() };
 

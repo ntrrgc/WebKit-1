@@ -515,11 +515,6 @@ void SourceBufferPrivate::reenqueueMediaIfNeeded(const MediaTime& currentTime)
     });
 }
 
-static PlatformTimeRanges removeSamplesFromTrackBuffer(const DecodeOrderSampleMap::MapType& samples, TrackBuffer& trackBuffer, ASCIILiteral logPrefix)
-{
-    return trackBuffer.removeSamples(samples, logPrefix);
-}
-
 MediaTime SourceBufferPrivate::findPreviousSyncSamplePresentationTime(const MediaTime& time)
 {
     MediaTime previousSyncSamplePresentationTime = time;
@@ -1603,6 +1598,9 @@ bool SourceBufferPrivate::processMediaSample(SourceBufferPrivateClient& client, 
             } while (false);
         }
 
+        if (sample->isSync())
+            trackBuffer.clearSmoothSwitch();
+
         // 1.15 Remove decoding dependencies of the coded frames removed in the previous step:
         DecodeOrderSampleMap::MapType dependentSamples;
         if (!erasedSamples.empty()) {
@@ -1638,17 +1636,22 @@ bool SourceBufferPrivate::processMediaSample(SourceBufferPrivateClient& client, 
                     dependentSamples.insert(entry);
             }
 
-            PlatformTimeRanges erasedRanges = removeSamplesFromTrackBuffer(dependentSamples, trackBuffer, "didReceiveSample"_s);
+            PlatformTimeRanges erasedRanges = trackBuffer.removeSamplesFromMap(dependentSamples, "didReceiveSample"_s);
 
             // Only force the TrackBuffer to re-enqueue if the removed ranges overlap with enqueued and possibly
             // not yet displayed samples.
             MediaTime currentTime = this->currentTime();
+            bool needStartSmoothSwitch = false;
             if (trackBuffer.highestEnqueuedPresentationTime().isValid() && currentTime < trackBuffer.highestEnqueuedPresentationTime()) {
                 PlatformTimeRanges possiblyEnqueuedRanges(currentTime, trackBuffer.highestEnqueuedPresentationTime());
                 possiblyEnqueuedRanges.intersectWith(erasedRanges);
                 if (possiblyEnqueuedRanges.length())
-                    trackBuffer.setNeedsReenqueueing(true);
+                    needStartSmoothSwitch = true;
             }
+            if (needStartSmoothSwitch)
+                trackBuffer.startSmoothSwitch();
+            else
+                trackBuffer.removeSamplesFromDecodeQueue(dependentSamples, "didReceiveSample"_s);
 
             erasedRanges.invert();
             trackBuffer.buffered().intersectWith(erasedRanges);
