@@ -120,9 +120,6 @@ public:
     bool needsReenqueueing() const { return m_needsReenqueueing; }
     void setNeedsReenqueueing(bool flag) { m_needsReenqueueing = flag; }
 
-    void startSmoothSwitch();
-    void clearSmoothSwitch();
-
     const SampleMap& samples() const LIFETIME_BOUND { return m_samples; }
     SampleMap& samples() LIFETIME_BOUND { return m_samples; }
     const RefPtr<MediaDescription>& description() const { return m_description; }
@@ -148,6 +145,8 @@ private:
     // gaps consult the constructor-supplied callback (when set —
     // currently MSE only).
     bool isAcceptableEnqueueGap(const MediaTime& fromTime, const MediaTime& toTime) const;
+
+    MediaTime futureDiscontinuityBoundary() const;
 
     const DecodeOrderSampleMap::MapType& decodeQueue() const LIFETIME_BOUND { return m_decodeQueue; }
     DecodeOrderSampleMap::MapType& decodeQueue() LIFETIME_BOUND { return m_decodeQueue; }
@@ -197,11 +196,11 @@ private:
     MediaTime m_lastEnqueueDecodeEnd;
     IsAcceptableEnqueueGapFn m_isAcceptableEnqueueGap;
 
-    struct SmoothSwitch {
-        // Highest decode time that can be enqueued (i.e. is not after a discontinuity).
-        MediaTime decodeTimeDeadline;
-    };
-    std::optional<SmoothSwitch> m_smoothSwitch;
+
+    // The decode key of the sync sample of the latest appeneded GOP.
+    DecodeOrderSampleMap::KeyType m_groupLeaderDecodeKey { MediaTime::invalidTime(), MediaTime::invalidTime() };
+    // Whether samples of the latest appended GOP need to be withheld from the decodeQueue at this point.
+    bool m_isWithholdingSamples { false };
 
     MediaTime m_roundedTimestampOffset { MediaTime::invalidTime() };
 

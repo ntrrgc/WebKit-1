@@ -7,7 +7,7 @@ EVENT(updateend)
 RUN(internals.setMaximumQueueDepthForTrackID(sourceBuffer, TRACK_ID, 2))
 RUN(sourceBuffer.appendBuffer(gops(1, [[0,3],[3,6],[6,9]])))
 EVENT(updateend)
-Decode queue:
+Enqueued samples:
 {PTS({0/1 = 0.000000}), DTS({0/1 = 0.000000}), duration({1/1 = 1.000000}), flags(1), generation(1)}
 {PTS({1/1 = 1.000000}), DTS({1/1 = 1.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
 RUN(sourceBuffer.appendBuffer(gops(2, [[0,3]])))
@@ -15,7 +15,7 @@ EVENT(updateend)
 RUN(internals.setMaximumQueueDepthForTrackID(sourceBuffer, TRACK_ID, QUEUE_DEPTH_UNLIMITED))
 
 The new quality must not have been enqueued since it was fully contained in an already enqueued GOP of the old quality:
-Decode queue:
+Enqueued samples:
 {PTS({0/1 = 0.000000}), DTS({0/1 = 0.000000}), duration({1/1 = 1.000000}), flags(1), generation(1)}
 {PTS({1/1 = 1.000000}), DTS({1/1 = 1.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
 {PTS({2/1 = 2.000000}), DTS({2/1 = 2.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
@@ -39,7 +39,7 @@ Buffered samples:
 A non-overlapping append afterwards should still work:
 RUN(sourceBuffer.appendBuffer(gops(3, [[9,12]])))
 EVENT(updateend)
-Decode queue:
+Enqueued samples:
 {PTS({0/1 = 0.000000}), DTS({0/1 = 0.000000}), duration({1/1 = 1.000000}), flags(1), generation(1)}
 {PTS({1/1 = 1.000000}), DTS({1/1 = 1.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
 {PTS({2/1 = 2.000000}), DTS({2/1 = 2.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
@@ -55,7 +55,7 @@ Decode queue:
 
 Seeking should flush and therefore [0, 3] should use generation 2:
 RUN(video.currentTime = 0.5)
-Decode queue:
+Enqueued samples:
 {PTS({0/1 = 0.000000}), DTS({0/1 = 0.000000}), duration({1/1 = 1.000000}), flags(1), generation(2)}
 {PTS({1/1 = 1.000000}), DTS({1/1 = 1.000000}), duration({1/1 = 1.000000}), flags(0), generation(2)}
 {PTS({2/1 = 2.000000}), DTS({2/1 = 2.000000}), duration({1/1 = 1.000000}), flags(0), generation(2)}

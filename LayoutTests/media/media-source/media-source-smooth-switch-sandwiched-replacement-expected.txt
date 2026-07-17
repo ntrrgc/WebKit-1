@@ -7,7 +7,7 @@ EVENT(updateend)
 RUN(internals.setMaximumQueueDepthForTrackID(sourceBuffer, TRACK_ID, 2))
 RUN(sourceBuffer.appendBuffer(gops(1, [[0,3],[3,6],[6,9]])))
 EVENT(updateend)
-Decode queue:
+Enqueued samples:
 {PTS({0/1 = 0.000000}), DTS({0/1 = 0.000000}), duration({1/1 = 1.000000}), flags(1), generation(1)}
 {PTS({1/1 = 1.000000}), DTS({1/1 = 1.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
 RUN(sourceBuffer.appendBuffer(gops(2, [[3,6]])))
@@ -15,7 +15,7 @@ EVENT(updateend)
 RUN(internals.setMaximumQueueDepthForTrackID(sourceBuffer, TRACK_ID, 7))
 
 We should have generations 1, 2, 1.
-Decode queue:
+Enqueued samples:
 {PTS({0/1 = 0.000000}), DTS({0/1 = 0.000000}), duration({1/1 = 1.000000}), flags(1), generation(1)}
 {PTS({1/1 = 1.000000}), DTS({1/1 = 1.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
 {PTS({2/1 = 2.000000}), DTS({2/1 = 2.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
@@ -30,7 +30,7 @@ EVENT(updateend)
 RUN(internals.setMaximumQueueDepthForTrackID(sourceBuffer, TRACK_ID, 8))
 
 For now, the generation 2 append hasn't reached the discontinuity boundary, so the browser keeps enqueueing the old quality:
-Decode queue:
+Enqueued samples:
 {PTS({0/1 = 0.000000}), DTS({0/1 = 0.000000}), duration({1/1 = 1.000000}), flags(1), generation(1)}
 {PTS({1/1 = 1.000000}), DTS({1/1 = 1.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
 {PTS({2/1 = 2.000000}), DTS({2/1 = 2.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
@@ -46,7 +46,7 @@ EVENT(updateend)
 RUN(internals.setMaximumQueueDepthForTrackID(sourceBuffer, TRACK_ID, QUEUE_DEPTH_UNLIMITED))
 
 We should have generations 1, 2, 1, 2. The last group needs to repeat samples as non-displaying to re-synchronize the decoder.
-Decode queue:
+Enqueued samples:
 {PTS({0/1 = 0.000000}), DTS({0/1 = 0.000000}), duration({1/1 = 1.000000}), flags(1), generation(1)}
 {PTS({1/1 = 1.000000}), DTS({1/1 = 1.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
 {PTS({2/1 = 2.000000}), DTS({2/1 = 2.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}

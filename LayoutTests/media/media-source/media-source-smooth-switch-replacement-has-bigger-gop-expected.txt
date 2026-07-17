@@ -7,7 +7,7 @@ EVENT(updateend)
 RUN(internals.setMaximumQueueDepthForTrackID(sourceBuffer, TRACK_ID, 5))
 RUN(sourceBuffer.appendBuffer(gops(1, [[0,3],[3,6],[6,9]])))
 EVENT(updateend)
-Decode queue:
+Enqueued samples:
 {PTS({0/1 = 0.000000}), DTS({0/1 = 0.000000}), duration({1/1 = 1.000000}), flags(1), generation(1)}
 {PTS({1/1 = 1.000000}), DTS({1/1 = 1.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
 {PTS({2/1 = 2.000000}), DTS({2/1 = 2.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
@@ -18,7 +18,7 @@ EVENT(updateend)
 RUN(internals.setMaximumQueueDepthForTrackID(sourceBuffer, TRACK_ID, QUEUE_DEPTH_UNLIMITED))
 
 Non-displaying samples are needed to catchup. All samples of generation 2, including the sync sample, must be present.
-Decode queue:
+Enqueued samples:
 {PTS({0/1 = 0.000000}), DTS({0/1 = 0.000000}), duration({1/1 = 1.000000}), flags(1), generation(1)}
 {PTS({1/1 = 1.000000}), DTS({1/1 = 1.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}
 {PTS({2/1 = 2.000000}), DTS({2/1 = 2.000000}), duration({1/1 = 1.000000}), flags(0), generation(1)}

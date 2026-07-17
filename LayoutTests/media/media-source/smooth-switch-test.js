@@ -9,7 +9,7 @@ if (window.internals)
     internals.initializeMockMediaSource();
 
 async function showEnqueuedSamples() {
-    consoleWrite("Decode queue:");
+    consoleWrite("Enqueued samples:");
     (await internals.enqueuedSamplesForTrackID(sourceBuffer, TRACK_ID)).forEach(consoleWrite);
 }
 async function showBufferedSamples() {

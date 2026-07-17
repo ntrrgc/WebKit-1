@@ -16,7 +16,6 @@
         consoleWrite("<br>We should have generations 1, 2, 1.")
         await showEnqueuedSamples();
 
-        //consoleWrite("<br>But here is the edge case: turns out we weren't done with that last GOP of generation 2! A following append now extends it past the buffered ranges, so it will have to be enqueued for playback to not stall.")
         consoleWrite("<br>But here is the edge case: turns out we weren't done with the generation 2 GOP! We enter the smooth switch state.")
         await sourceBufferAppendGopContinuation(2, [6, 8]);
         run('internals.setMaximumQueueDepthForTrackID(sourceBuffer, TRACK_ID, 8)');
