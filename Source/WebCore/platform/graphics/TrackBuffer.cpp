@@ -162,6 +162,7 @@ void TrackBuffer::addSample(MediaSample& sample)
 
         // Delete everything remaining in the decodeQueue that will be replaced by the new GOP. Decoding those
         // samples would be pointless since we already have replacements for the same time range.
+        // TODO: Don't erase to the end, only up to the future discontinuity boundary. Write a test to verify this.
         m_decodeQueue.erase(m_decodeQueue.lower_bound(newGopDecodeKey), m_decodeQueue.end());
 
         // Insert the dependent samples of the new GOP into the decode queue.
