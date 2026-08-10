@@ -138,54 +138,53 @@ void TrackBuffer::addSample(MediaSample& sample)
     DecodeOrderSampleMap::KeyType decodeKey = { sample.decodeTime(), sample.presentationTime() };
 
     if (sample.isSync()) {
-        m_groupLeaderDecodeKey = decodeKey;
+        m_appendGroupDecodeKey = decodeKey;
         if (m_lastEnqueuedDecodeKey.first.isInvalid() || decodeKey > m_lastEnqueuedDecodeKey) {
             if (m_isCatchingUpForSmoothSwitch && sample.presentationTime() < m_highestEnqueuedPresentationTime) {
-                ALWAYS_LOG(LOGIDENTIFIER, "Smooth switch: New GOP during catch-up, discarding previous catch-up samples");
+                INFO_LOG(LOGIDENTIFIER, "Smooth switch: New GOP during catch-up, discarding previous catch-up samples");
                 m_decodeQueue.erase(m_decodeQueue.begin(), m_decodeQueue.upper_bound(decodeKey));
             } else
-                ALWAYS_LOG(LOGIDENTIFIER, "Smooth switch: This GOP can be forwarded to the decode queue.");
+                DEBUG_LOG(LOGIDENTIFIER, "This GOP can be forwarded to the decode queue.");
 
             m_isWithholdingSamples = false;
         } else {
-            ALWAYS_LOG(LOGIDENTIFIER, "Smooth switch: This GOP will be withheld from the decode queue, at least for now. Future discontinuity boundary: ", futureDiscontinuityBoundary().toDouble());
+            INFO_LOG(LOGIDENTIFIER, "Smooth switch: This GOP will be withheld from the decode queue, at least for now. Future discontinuity boundary: ", futureDiscontinuityBoundary().toDouble());
             m_isWithholdingSamples = true;
         }
     }
 
     if (!sample.isSync() && m_isWithholdingSamples && futureDiscontinuityBoundary().isValid() && sample.decodeTime() > futureDiscontinuityBoundary()) {
-        m_isWithholdingSamples = false;
-
-        // Complete smooth switch, more expensive case: for playback to be smooth the decoder will have to
-        // process new samples as non-displaying after already decoding old samples for the same time range.
-        ALWAYS_LOG(LOGIDENTIFIER, "Smooth switch: Completing with non-displaying samples (slow case). "
+        INFO_LOG(LOGIDENTIFIER, "Smooth switch: Completing with non-displaying samples (expensive case). "
             "Is decode queue empty: ", m_decodeQueue.empty(), ". New sample: ", sample);
 
-        auto newGopStart = m_samples.decodeOrder().findSyncSamplePriorToDecodeKey(decodeKey);
-        auto newGopDecodeKey = newGopStart->first;
+        auto newGroupStart = m_samples.decodeOrder().findSyncSamplePriorToDecodeKey(decodeKey);
+        auto newGroupDecodeKey = newGroupStart->first;
 
         // Delete everything remaining in the decodeQueue that will be replaced by the new GOP. Decoding those
         // samples would be pointless since we already have replacements for the same time range.
-        // TODO: Write a test to verify this. Double check the comment.
-        m_decodeQueue.erase(m_decodeQueue.lower_bound(newGopDecodeKey), m_decodeQueue.lower_bound({futureDiscontinuityBoundary(), MediaTime::negativeInfiniteTime()}));
+        // See: media/media-source/media-source-smooth-switch-expensive-filling-gap.html
+        m_decodeQueue.erase(m_decodeQueue.lower_bound(newGroupDecodeKey), m_decodeQueue.lower_bound({futureDiscontinuityBoundary(), MediaTime::negativeInfiniteTime()}));
 
         // Insert the dependent samples of the new GOP into the decode queue.
-        for (auto it = newGopStart; it != m_samples.decodeOrder().end() && it->first < decodeKey; ++it) {
+        for (auto it = newGroupStart; it != m_samples.decodeOrder().end() && it->first < decodeKey; ++it) {
             Ref<MediaSample> dependentSample = it->second;
             bool needsNonDisplaying = dependentSample->presentationEndTime()
                 < m_highestEnqueuedPresentationTime + PlatformTimeRanges::timeFudgeFactor();
-            ALWAYS_LOG(LOGIDENTIFIER, "Inserting dependent ", needsNonDisplaying ? "non-" : "" , "displaying sample with PTS=", dependentSample->presentationTime().toDouble());
+            DEBUG_LOG(LOGIDENTIFIER, "Inserting dependent ", needsNonDisplaying ? "non-" : "" , "displaying sample with PTS=", dependentSample->presentationTime().toDouble());
             Ref<MediaSample> dependentSampleToInsert = needsNonDisplaying ?
                 dependentSample->createNonDisplayingCopy() : dependentSample;
             m_decodeQueue.insert({ it->first, dependentSampleToInsert });
         }
 
+        m_isWithholdingSamples = false;
         // Enter a catch-up state until we are done enqueueing non-displaying samples.
-        // Being aware of this state is important for correctly handling a second smooth switch that occurs
-        // while we are still catching up.
+        // Being aware of this state is important for correctly handling a potential second smooth switch that
+        // occurs while we are still catching up.
         m_isCatchingUpForSmoothSwitch = true;
     }
 
+    // If the current sample needs to be in the decode queue, insert it.
+    //
     // Note: The terminology here is confusing: "enqueuing" means providing a frame to the inner media framework.
     // First, frames are inserted in the decode queue; later, at the end of the append some of the frames in the
     // decode may be "enqueued" (sent to the inner media framework) in `provideMediaData()`.
@@ -197,6 +196,9 @@ void TrackBuffer::addSample(MediaSample& sample)
     // If the frame is after the discontinuity boundary, the enqueueing algorithm will hold it there until samples
     // with earlier timestamps are enqueued. The decode queue is not FIFO, but rather an ordered map.
     if (!m_isWithholdingSamples && (lastEnqueuedDecodeKey().first.isInvalid() || decodeKey > lastEnqueuedDecodeKey())) {
+        // If we get a smooth switch interrupted by a third overlapping attempt, the latter may need some samples
+        // to be non-displaying, as they can be after lastEnqueuedDecodeKey but have PTS <= highestEnqueuedPresentationTime.
+        // See: media/media-source/media-source-smooth-switch-twice.html
         bool needsNonDisplaying = m_isCatchingUpForSmoothSwitch
             && sample.presentationEndTime() < m_highestEnqueuedPresentationTime + PlatformTimeRanges::timeFudgeFactor();
         DEBUG_LOG(LOGIDENTIFIER, "Inserting ", needsNonDisplaying ? "non-" : "", "displaying sample in decodeQueue with decodeKey: DTS=", decodeKey.first.toDouble(), " PTS=", decodeKey.second.toDouble());
@@ -207,7 +209,7 @@ void TrackBuffer::addSample(MediaSample& sample)
         // of the official samples in the track. If the new sample overlaps with such a sample, it must be erased.
         auto result = decodeQueue().insert_or_assign(decodeKey, sampleToInsert);
         if (!result.second)
-            ALWAYS_LOG(LOGIDENTIFIER, "Overwrote sample from previous smooth switch with identical decodeKey: DTS=", decodeKey.first.toDouble());
+            DEBUG_LOG(LOGIDENTIFIER, "Overwrote sample from previous smooth switch with identical decodeKey: DTS=", decodeKey.first.toDouble());
         auto it = result.first;
 
         if (it == decodeQueue().begin())
@@ -220,12 +222,13 @@ void TrackBuffer::addSample(MediaSample& sample)
         }
 
         if (!sample.isSync()) {
-            // Find the previous sync sample in the decode queue, if any.
+            // If the new sample got ahead of a unrelated sync sample, erase it, as it is a leftover from a smooth switch.
+            // See media/media-source/media-source-smooth-switch-replacement-has-bigger-gop-misaligned.html for an example of why that's necessary.
             auto prevSyncSample = std::make_reverse_iterator(it);
             while (prevSyncSample != decodeQueue().rend() && !protect(prevSyncSample->second)->isSync())
                 ++prevSyncSample;
-            if (prevSyncSample != decodeQueue().rend() && prevSyncSample->first != m_groupLeaderDecodeKey) {
-                ALWAYS_LOG(LOGIDENTIFIER, "Erasing stale interleaved sync frame with DTS=", prevSyncSample->first.first.toDouble(), " current leader DTS=", m_groupLeaderDecodeKey.first.toDouble());
+            if (prevSyncSample != decodeQueue().rend() && prevSyncSample->first != m_appendGroupDecodeKey) {
+                DEBUG_LOG(LOGIDENTIFIER, "Erasing stale interleaved sync sample with DTS=", prevSyncSample->first.first.toDouble(), " current leader DTS=", m_appendGroupDecodeKey.first.toDouble());
                 decodeQueue().erase(prevSyncSample->first);
             }
         }
@@ -233,7 +236,7 @@ void TrackBuffer::addSample(MediaSample& sample)
         // Delete any following samples in the decode queue that the new sample makes undecodable.
         ++it;
         while (it != decodeQueue().end() && !protect(it->second)->isSync()) {
-            ALWAYS_LOG(LOGIDENTIFIER, "Erasing newly orphaned sample from decodeQueue: ", protect(it->second).get());
+            DEBUG_LOG(LOGIDENTIFIER, "Erasing newly orphaned sample from decodeQueue: ", protect(it->second).get());
             it = decodeQueue().erase(it);
         }
 
@@ -283,9 +286,11 @@ RefPtr<MediaSample> TrackBuffer::nextSample()
 
     Ref sample = decodeQueue().begin()->second;
 
+    // Bail out if there is a discontinuity, except in the one case where it's necessary: catching up with a nested smooth switch.
     if (sample->decodeTime() > enqueueDiscontinuityBoundary()
         && (!m_isAcceptableEnqueueGap || !m_isAcceptableEnqueueGap(m_lastEnqueueDecodeEnd, sample->decodeTime()))
-        && (!m_isCatchingUpForSmoothSwitch || !sample->isSync() || sample->presentationTime() > highestEnqueuedPresentationTime())) {
+        && !(m_isCatchingUpForSmoothSwitch && sample->isSync() && sample->presentationTime() <= highestEnqueuedPresentationTime()))
+    {
         WARNING_LOG(LOGIDENTIFIER, "bailing early because of unbuffered gap, new sample DTS: ", sample->decodeTime(), " >= the current discontinuity boundary: ", enqueueDiscontinuityBoundary());
         return { };
     }
@@ -299,7 +304,7 @@ RefPtr<MediaSample> TrackBuffer::nextSample()
         setHighestEnqueuedPresentationTime(samplePresentationEnd);
 
         if (m_isCatchingUpForSmoothSwitch) {
-            ALWAYS_LOG(LOGIDENTIFIER, "Smooth switch: Completed catch-up with first displaying sample, PTS=", sample->presentationTime().toDouble());
+            INFO_LOG(LOGIDENTIFIER, "Smooth switch: Completed catch-up with first displaying sample, PTS=", sample->presentationTime().toDouble());
             m_isCatchingUpForSmoothSwitch = false;
         }
     }
@@ -324,13 +329,13 @@ RefPtr<MediaSample> TrackBuffer::nextSample()
         }
     }
 
-    ALWAYS_LOG(LOGIDENTIFIER, "Enqueued sample DTS=", decodeKey.first.toDouble(), " PTS=", decodeKey.second.toDouble(),
-        " Leader DTS=", m_groupLeaderDecodeKey.first.toDouble(), " PTS=", m_groupLeaderDecodeKey.second.toDouble(),
+    DEBUG_LOG(LOGIDENTIFIER, "Enqueued sample DTS=", decodeKey.first.toDouble(), " PTS=", decodeKey.second.toDouble(),
+        " Leader DTS=", m_appendGroupDecodeKey.first.toDouble(), " PTS=", m_appendGroupDecodeKey.second.toDouble(),
         " m_isWithholdingSamples: ", m_isWithholdingSamples, " isSync: ", sample->isSync());
-    if (m_groupLeaderDecodeKey.first.isValid() && !m_isWithholdingSamples && sample->isSync() && decodeKey > m_groupLeaderDecodeKey) {
+    if (m_appendGroupDecodeKey.first.isValid() && !m_isWithholdingSamples && sample->isSync() && decodeKey > m_appendGroupDecodeKey) {
         // Prevent future non-sync samples of the currently appended GOP from mixing with the unrelated GOP just enqueued now.
         // Test case: LayoutTests/media/media-source/media-source-smooth-switch-sandwiched-replacement.html
-        ALWAYS_LOG(LOGIDENTIFIER, "Smooth switch: The GOP currently being appended needs to be withheld again.");
+        INFO_LOG(LOGIDENTIFIER, "Smooth switch: The GOP currently being appended needs to be withheld again.");
         m_isWithholdingSamples = true;
     }
 
@@ -606,7 +611,7 @@ int64_t TrackBuffer::removeCodedFrames(const MediaTime& startIn, const MediaTime
     ASSERT(end.isValid());
     // 3.5.9 Coded Frame Removal Algorithm
     // https://dvcs.w3.org/hg/html-media/raw-file/tip/media-source/media-source.html#sourcebuffer-coded-frame-removal
-
+    
     // 3.1. Let remove end timestamp be the current value of duration
     // 3.2 If this track buffer has a random access point timestamp that is greater than or equal to end, then update
     // remove end timestamp to that random access point timestamp.

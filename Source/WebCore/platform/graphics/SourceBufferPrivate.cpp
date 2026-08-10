@@ -1634,14 +1634,14 @@ bool SourceBufferPrivate::processMediaSample(SourceBufferPrivateClient& client, 
             // Only force the TrackBuffer to re-enqueue if the removed ranges overlap with enqueued and possibly
             // not yet displayed samples.
             MediaTime currentTime = this->currentTime();
-            bool needStartSmoothSwitch = false;
+            bool needsSmoothSwitch = false;
             if (trackBuffer.highestEnqueuedPresentationTime().isValid() && currentTime < trackBuffer.highestEnqueuedPresentationTime()) {
                 PlatformTimeRanges possiblyEnqueuedRanges(currentTime, trackBuffer.highestEnqueuedPresentationTime());
                 possiblyEnqueuedRanges.intersectWith(erasedRanges);
                 if (possiblyEnqueuedRanges.length())
-                    needStartSmoothSwitch = true;
+                    needsSmoothSwitch = true;
             }
-            if (!needStartSmoothSwitch)
+            if (!needsSmoothSwitch)
                 trackBuffer.removeSamplesFromDecodeQueue(dependentSamples, "didReceiveSample"_s);
 
             erasedRanges.invert();
