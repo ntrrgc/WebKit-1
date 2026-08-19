@@ -807,7 +807,7 @@ void TrackBuffer::clearSamples()
     m_buffered = PlatformTimeRanges();
 }
 
-const MediaTime TrackBuffer::futureDiscontinuityBoundary()
+MediaTime TrackBuffer::futureDiscontinuityBoundary() const
 {
     if (m_furthestContiguousSample == decodeQueue().end())
         return m_enqueueDiscontinuityBoundary;

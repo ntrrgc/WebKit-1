@@ -96,7 +96,7 @@ public:
     void setHighestEnqueuedPresentationTime(MediaTime timestamp) { m_highestEnqueuedPresentationTime = WTF::move(timestamp); }
     const MediaTime& minimumEnqueuedPresentationTime() const LIFETIME_BOUND { return m_minimumEnqueuedPresentationTime; }
 
-    const MediaTime futureDiscontinuityBoundary();
+    MediaTime futureDiscontinuityBoundary() const;
 
     // Raises the tracked reorder depth. Call once per init segment with the
     // codec-declared max_num_reorder_frames / sps_max_num_reorder_pics when
