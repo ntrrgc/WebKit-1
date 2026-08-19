@@ -227,10 +227,10 @@ void TrackBuffer::addSample(MediaSample& sample)
 
         // Due to a previous smooth switch, there may remain samples in the decode queue that are no longer part
         // of the official samples in the track. If the new sample overlaps with such a sample, it must be erased.
-        DecodeOrderSampleMap::iterator it;
-        if (decodeQueue().contains(decodeKey)) {
-            updateFurthestContiguousSampleBeforeErase(decodeQueue().find(decodeKey));
-            it = decodeQueue().insert_or_assign(decodeKey, sampleToInsert).first;
+        DecodeOrderSampleMap::iterator it = decodeQueue().find(decodeKey);
+        if (it != decodeQueue().end()) {
+            updateFurthestContiguousSampleBeforeErase(it);
+            it->second = sampleToInsert;
 
             DEBUG_LOG(LOGIDENTIFIER, "Overwrote sample from previous smooth switch with identical decodeKey: DTS=", decodeKey.first.toDouble());
         } else
