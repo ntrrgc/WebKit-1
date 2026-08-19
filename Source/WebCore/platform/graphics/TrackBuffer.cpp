@@ -819,11 +819,10 @@ void TrackBuffer::advanceFurthestContiguousSample()
 {
     if (m_furthestContiguousSample == decodeQueue().end()) {
         auto begin = decodeQueue().begin();
-
-        if (begin != decodeQueue().end() && isAcceptableEnqueueGap(MediaTime::zeroTime(), begin->second->decodeTime()))
-            m_furthestContiguousSample = begin;
-        else
+        if (begin == decodeQueue().end() || !isAcceptableEnqueueGap(MediaTime::zeroTime(), begin->second->decodeTime()))
             return;
+
+        m_furthestContiguousSample = begin;
     }
 
     while (true) {
