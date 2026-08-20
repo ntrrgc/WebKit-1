@@ -797,7 +797,6 @@ void TrackBuffer::reset()
     m_lastFrameDuration = MediaTime::invalidTime();
     m_highestPresentationTimestamp = MediaTime::invalidTime();
     m_needRandomAccessFlag = true;
-    m_furthestContiguousSample = m_decodeQueue.end();
 }
 
 void TrackBuffer::clearSamples()
