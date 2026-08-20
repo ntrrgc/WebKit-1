@@ -166,9 +166,8 @@ void TrackBuffer::addSample(MediaSample& sample)
         }
     }
 
+    ASSERT(futureDiscontinuityBoundary().isValid());
     if (!sample.isSync() && m_isWithholdingSamples && sample.decodeTime() > futureDiscontinuityBoundary()) {
-        // FIXME: put an assert here that futureDiscontBoundary is valid, or at least m_furthest is
-
         INFO_LOG(LOGIDENTIFIER, "Smooth switch: Completing with non-displaying samples (expensive case). "
             "Is decode queue empty: ", m_decodeQueue.empty(), ". New sample: ", sample);
 
