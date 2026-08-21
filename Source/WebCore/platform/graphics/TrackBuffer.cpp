@@ -154,8 +154,8 @@ void TrackBuffer::addSample(MediaSample& sample)
         if (m_lastEnqueuedDecodeKey.first.isInvalid() || decodeKey > m_lastEnqueuedDecodeKey) {
             if (m_isCatchingUpForSmoothSwitch && sample.presentationTime() < m_highestEnqueuedPresentationTime) {
                 INFO_LOG(LOGIDENTIFIER, "Smooth switch: New GOP during catch-up, discarding previous catch-up samples");
-                m_decodeQueue.erase(m_decodeQueue.begin(), m_decodeQueue.upper_bound(decodeKey));
                 m_furthestContiguousSample = decodeQueue().end();
+                m_decodeQueue.erase(m_decodeQueue.begin(), m_decodeQueue.upper_bound(decodeKey));
             } else
                 DEBUG_LOG(LOGIDENTIFIER, "This GOP can be forwarded to the decode queue.");
 
@@ -220,9 +220,9 @@ void TrackBuffer::addSample(MediaSample& sample)
         // See: media/media-source/media-source-smooth-switch-twice.html
         bool needsNonDisplaying = m_isCatchingUpForSmoothSwitch
             && sample.presentationEndTime() < m_highestEnqueuedPresentationTime + PlatformTimeRanges::timeFudgeFactor();
-        DEBUG_LOG(LOGIDENTIFIER, "Inserting ", needsNonDisplaying ? "non-" : "", "displaying sample in decodeQueue with decodeKey: DTS=", decodeKey.first.toDouble(), " PTS=", decodeKey.second.toDouble());
         Ref<MediaSample> sampleToInsert = needsNonDisplaying ?
             sample.createNonDisplayingCopy() : Ref(sample);
+        DEBUG_LOG(LOGIDENTIFIER, "Inserting ", sampleToInsert->isNonDisplaying() ? "non-" : "", "displaying sample in decodeQueue with decodeKey: DTS=", decodeKey.first.toDouble(), " PTS=", decodeKey.second.toDouble());
 
         // Due to a previous smooth switch, there may remain samples in the decode queue that are no longer part
         // of the official samples in the track. If the new sample overlaps with such a sample, it must be erased.
@@ -231,7 +231,7 @@ void TrackBuffer::addSample(MediaSample& sample)
             updateFurthestContiguousSampleBeforeErase(it);
             it->second = sampleToInsert;
 
-            DEBUG_LOG(LOGIDENTIFIER, "Overwrote sample from previous smooth switch with identical decodeKey: DTS=", decodeKey.first.toDouble());
+            DEBUG_LOG(LOGIDENTIFIER, "Overwrote sample from previous smooth switch with identical decodeKey: DTS=", decodeKey.first.toDouble(), " PTS=", decodeKey.second.toDouble());
         } else
             it = decodeQueue().insert({ decodeKey, sampleToInsert }).first;
 
@@ -253,8 +253,10 @@ void TrackBuffer::addSample(MediaSample& sample)
             while (prevSyncSample != decodeQueue().rend() && !protect(prevSyncSample->second)->isSync())
                 ++prevSyncSample;
             if (prevSyncSample != decodeQueue().rend() && prevSyncSample->first != m_appendGroupDecodeKey) {
-                DEBUG_LOG(LOGIDENTIFIER, "Erasing stale interleaved sync sample with DTS=", prevSyncSample->first.first.toDouble(), " current leader DTS=", m_appendGroupDecodeKey.first.toDouble());
-                decodeQueue().erase(prevSyncSample->first);
+                auto forwardIt = std::prev(prevSyncSample.base());
+                DEBUG_LOG(LOGIDENTIFIER, "Erasing stale interleaved sync sample with DTS=", prevSyncSample->first.first.toDouble(), " current group start DTS=", m_appendGroupDecodeKey.first.toDouble());
+                updateFurthestContiguousSampleBeforeErase(forwardIt);
+                decodeQueue().erase(forwardIt);
             }
         }
 
@@ -624,8 +626,11 @@ void TrackBuffer::removeSamplesFromDecodeQueue(const DecodeOrderSampleMap::MapTy
         DEBUG_LOG_IF(m_logger, logId, "removing sample from decode queue ", sampleIt.second.get());
 #endif
 
-        updateFurthestContiguousSampleBeforeErase(decodeQueue().find(decodeKey));
-        m_decodeQueue.erase(decodeKey);
+        auto decodeQueueIt = decodeQueue().find(decodeKey);
+        if (decodeQueueIt != decodeQueue().end()) {
+            updateFurthestContiguousSampleBeforeErase(decodeQueueIt);
+            m_decodeQueue.erase(decodeQueueIt);
+        }
     }
 
     updateMinimumUpcomingPresentationTime();

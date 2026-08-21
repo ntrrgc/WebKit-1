@@ -1406,7 +1406,7 @@ bool SourceBufferPrivate::processMediaSample(SourceBufferPrivateClient& client, 
         // 1.13 If last decode timestamp for track buffer is unset and presentation timestamp
         // falls within the presentation interval of a coded frame in track buffer, then run the
         // following steps:
-        if (trackBuffer.lastDecodeTimestamp().isInvalid()/* || (trackBuffer.isInSmoothSwitch() && sample->isSync()) TODO: confirm unnecessary */) {
+        if (trackBuffer.lastDecodeTimestamp().isInvalid()) {
             auto iter = trackBuffer.samples().presentationOrder().findSampleContainingPresentationTime(presentationTimestamp);
             if (iter != trackBuffer.samples().presentationOrder().end()) {
                 // 1.13.1 Let overlapped frame be the coded frame in track buffer that matches the condition above.
@@ -1462,7 +1462,7 @@ bool SourceBufferPrivate::processMediaSample(SourceBufferPrivateClient& client, 
 
         // 1.14 Remove existing coded frames in track buffer:
         // If highest presentation timestamp for track buffer is not set:
-        if (trackBuffer.highestPresentationTimestamp().isInvalid()/* || (trackBuffer.isInSmoothSwitch() && sample->isSync()) TODO, confirm unnecessary */) {
+        if (trackBuffer.highestPresentationTimestamp().isInvalid()) {
             // Remove all coded frames from track buffer that have a presentation timestamp greater than or
             // equal to presentation timestamp and less than frame end timestamp.
             auto iterPair = trackBuffer.samples().presentationOrder().findSamplesBetweenPresentationTimes(presentationTimestamp, frameEndTimestamp);
@@ -1596,7 +1596,6 @@ bool SourceBufferPrivate::processMediaSample(SourceBufferPrivateClient& client, 
         // 1.15 Remove decoding dependencies of the coded frames removed in the previous step:
         DecodeOrderSampleMap::MapType dependentSamples;
         if (!erasedSamples.empty()) {
-            ALWAYS_LOG(LOGIDENTIFIER, "MIAU have samples to erase");
             // If detailed information about decoding dependencies is available:
             // FIXME: Add support for detailed dependency information
 
